@@ -1,0 +1,56 @@
+/* src/app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-stone-200;
+  }
+
+  body {
+    @apply bg-surface text-ink antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { @apply bg-stone-100; }
+  ::-webkit-scrollbar-thumb  { @apply bg-stone-300 rounded-full; }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-stone-100 shadow-sm;
+  }
+
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+
+  .btn-primary {
+    @apply bg-brand-500 hover:bg-brand-600 text-white font-semibold
+           px-4 py-2 rounded-lg transition-colors text-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium
+           px-4 py-2 rounded-lg transition-colors text-sm;
+  }
+
+  .input {
+    @apply border border-stone-200 rounded-lg px-3 py-2 text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent
+           placeholder:text-stone-400 w-full;
+  }
+
+  .badge-gofood     { @apply bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full; }
+  .badge-grabfood   { @apply bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full; }
+  .badge-shopeefood { @apply bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full; }
+}

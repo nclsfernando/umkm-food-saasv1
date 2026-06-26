@@ -1,0 +1,244 @@
+// prisma/schema.prisma
+// UMKM Food SaaS — Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUM
+// ─────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  STAFF
+}
+
+enum Marketplace {
+  GOFOOD
+  GRABFOOD
+  SHOPEEFOOD
+}
+
+enum OrderStatus {
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum SettlementStatus {
+  PENDING
+  SETTLED
+}
+
+enum ExpenseCategory {
+  BAHAN_BAKU
+  GAS
+  LISTRIK
+  AIR
+  INTERNET
+  GAJI
+  MARKETING
+  TRANSPORTASI
+  LAIN_LAIN
+}
+
+enum ProductCategory {
+  FOOD
+  BEVERAGE
+  DESSERT
+  SNACK
+}
+
+enum UploadStatus {
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         Role     @default(STAFF)
+  businessName String?  @map("business_name")
+  phone        String?
+  avatarUrl    String?  @map("avatar_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  uploads    Upload[]
+  expenses   Expense[]
+  auditLogs  AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// CATEGORIES & PRODUCTS
+// ─────────────────────────────────────────────
+
+model Category {
+  id        String          @id @default(uuid())
+  name      ProductCategory @unique
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  categoryId  String   @map("category_id")
+  sellingPrice Decimal @map("selling_price") @db.Decimal(15, 2)
+  hpp          Decimal @db.Decimal(15, 2) // Harga Pokok Produksi
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+// ─────────────────────────────────────────────
+// UPLOADS
+// ─────────────────────────────────────────────
+
+model Upload {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  marketplace Marketplace
+  filename    String
+  fileUrl     String       @map("file_url")
+  fileSize    Int          @map("file_size") // bytes
+  status      UploadStatus @default(PROCESSING)
+  rowsTotal   Int          @default(0) @map("rows_total")
+  rowsSuccess Int          @default(0) @map("rows_success")
+  rowsFailed  Int          @default(0) @map("rows_failed")
+  errorLog    Json?        @map("error_log")
+  uploadDate  DateTime     @map("upload_date") // date range dari file
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id])
+  orders Order[]
+
+  @@map("uploads")
+}
+
+// ─────────────────────────────────────────────
+// ORDERS
+// ─────────────────────────────────────────────
+
+model Order {
+  id            String      @id @default(uuid())
+  uploadId      String      @map("upload_id")
+  orderNumber   String      @map("order_number")
+  marketplace   Marketplace
+  orderDate     DateTime    @map("order_date")
+  status        OrderStatus @default(COMPLETED)
+  grossSales    Decimal     @map("gross_sales") @db.Decimal(15, 2)
+  discount      Decimal     @default(0) @db.Decimal(15, 2)
+  commission    Decimal     @default(0) @db.Decimal(15, 2)
+  netSales      Decimal     @map("net_sales") @db.Decimal(15, 2)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  upload     Upload      @relation(fields: [uploadId], references: [id])
+  items      OrderItem[]
+  settlement Settlement?
+
+  @@unique([orderNumber, marketplace])
+  @@index([orderDate])
+  @@index([marketplace])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String  @map("order_id")
+  productId   String? @map("product_id")
+  productName String  @map("product_name") // raw dari laporan
+  qty         Int
+  unitPrice   Decimal @map("unit_price") @db.Decimal(15, 2)
+  subtotal    Decimal @db.Decimal(15, 2)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────────────
+// EXPENSES
+// ─────────────────────────────────────────────
+
+model Expense {
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  category    ExpenseCategory
+  description String?
+  amount      Decimal         @db.Decimal(15, 2)
+  expenseDate DateTime        @map("expense_date")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// ─────────────────────────────────────────────
+// SETTLEMENTS
+// ─────────────────────────────────────────────
+
+model Settlement {
+  id             String           @id @default(uuid())
+  orderId        String           @unique @map("order_id")
+  marketplace    Marketplace
+  expectedAmount Decimal          @map("expected_amount") @db.Decimal(15, 2)
+  settledAmount  Decimal?         @map("settled_amount") @db.Decimal(15, 2)
+  status         SettlementStatus @default(PENDING)
+  settledAt      DateTime?        @map("settled_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@index([marketplace])
+  @@map("settlements")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOGS
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  action    String   // e.g. "UPLOAD_REPORT", "DELETE_EXPENSE"
+  entity    String   // e.g. "Upload", "Expense"
+  entityId  String?  @map("entity_id")
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
